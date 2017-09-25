@@ -1,0 +1,35 @@
+Katerina Baousi-Candidate no:32438
+
+CW1 COMSM2001- The project marking problem
+
+Question 1: How you solved the problem of synchronising threads?
+
+Answer1:Mutexes implement synchronisation by controlling access to data whereas condition variables allow threads to synchronise based upon the actual value of the data.
+In my implementation I used a mutex variable (named mut) and a condition variable (named cv) to synchronise the threads created in the program.The global variables shared among the marker and student threads are the following:
+a)availMarkers: a counter with initial value parameters.M showing how many markers are available in each stage
+b)studentCount: a counter with initial value 0 showing how many students have terminated the procedure
+c)markerCount: a counter with initial value M showing how many markers have terminated the procedure
+d)markerAvail[MAXMAR]: an array storing values that represent the state of the markers
+e)studentMarker[MAXMAR]: an array storing the studentID examined by the marker with markerID equal to the position in the array
+f)performedDemo[MAXSTU]: an array storing binary values that represent whether a student has finished the demo or not (1,0 respectively)
+
+In this program the student threads panic, enter the lab and wait for parameters.K markers to be available. For that reason it is indispensable to use a condition variable with a predicate which in this case will be :
+ while (availMarkers<parameters.K){ wait(); }
+Once the at least K markers are free the student grabs them, changes their state in the markerAvail array to busy, decreases the number of available markers (availMarkers counter) , update a local counter and broadcast the changes that occured in these sensitive data. Then the student starts to demo and when the demo finishes the mutex is locked and the value in the performedDemo array is updated the, the change is once again broadcasted and ultimately the mutex is unlocked.
+
+The marker threads enter the lab and wait for a student to grab them. In more detail the marker thread wait for a student to change their state into busy. This is accomplished once again by using a condition variable with a predicate :
+while(markerAvail[markerID]==1){wait();}
+Once this is fulfilled the marker is grabbed by a student with studentID stored in the studentMarker array. At this point the marker should wait until the student performs the demo. In this case the predicate will be:
+while (performedDemo[studentID]==0) {wait();} 
+After this point the marker should become available again. Therefore the mutex is locked , the value for the marker in the markerAvail array is changed , the number of available markers is increased ,the changes preformed are broadcasted and the mutex is unlocked.
+
+
+Question 2: Why you believe your method is correct (or how it could be made correct)?
+
+Answer2: The output results are correct as described by the initial problem. I assumed that marker 0 will be grabbed first and then all of the other markers will be grabbed if they are available. Students don't wait for a specific marker to be available.
+The conditions checked everytime before proceeding in the manipulation of the marker threads are responsible for checking if there is enough time for another demo or if there are still students that have not been examined yet.Furthermore the condition checked before proceeding in the manipulation of the students is whether there is enough time for another demo or not. These two conditions make sure that all demos are executed with respect to parameters.T and that once all the students have gone through the examination procedure there is no point for the markers to wait any longer.
+The cooperation between the conditional variable and the mutex used in this program is preformed successfully. The mutex is always locked before calling pthread_cond_wait(&cv) and in that way the mutex blocks the other threads from trying to access that data. In addition the mutex is always unlocked after pthread_cond_broadcast(&cv) allowing pthread_cond_wait(&cv) routine to complete.
+
+Question 3: Why your method is efficient (or how it could be improved)?
+
+Answer3:The use of the condition variable and the mutex helps the program avoid busy waiting and be thread safe. It would be more efficient to dynamically allocate memory using malloc but in my implementation I prefered to allocate the maximum size to the arrays I used. Overall, it is also more efficient to use pthread_cond_signal(&cv) rather than pthread_cond_broadcast(&cv). In our case though , it is necessary to wake up more than one thread so broadcast is the most adequate.In order to handle all the possible errors diagnostic messages will be printed in the creation of a thread, initialisation of a mutex and a condition variable,locking or unlocking of a mutex, broadcasting of a condition variable. Conclusively, right before the program terminates the mutex and the condition variable are destroyed and the threads are exited.
